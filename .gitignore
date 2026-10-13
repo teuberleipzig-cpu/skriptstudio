@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.core-build/
+.browser-build/
+.review-build/
+playwright-report/
+test-results/
+public/pdfjs/
+public/icon-*.png
+public/manifest.webmanifest
+tests/fixtures/*.pdf
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store

@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "CommonJS", "moduleResolution": "Node", "strict": true,
+    "noUncheckedIndexedAccess": true, "esModuleInterop": true,
+    "skipLibCheck": true, "outDir": ".core-build", "types": [],
+    "noUnusedLocals": true, "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/types/models.ts", "src/features/notes/delta.ts", "src/features/backup/backupSchema.ts", "src/features/export/deltaToPdf.ts", "src/storage/saveQueue.ts", "src/utils/binary.ts", "src/storage/concurrency.ts", "src/features/notes/clipboard.ts"]
+}

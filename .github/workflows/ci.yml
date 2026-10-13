@@ -1,0 +1,54 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main, 'feat/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Clean install with committed lock
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Strict TypeScript
+        run: npm run typecheck
+      - name: Core and database tests
+        run: npm run test
+      - name: Production build with offline resources
+        run: npm run build
+      - name: Install browser
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Chromium end-to-end tests on repository subpath
+        run: npm run test:e2e -- --project=chromium
+      - name: Preserve exact source for verification
+        if: always()
+        run: |
+          mkdir -p ci-evidence
+          git rev-parse HEAD > ci-evidence/commit.txt
+          git archive --format=zip -o ci-evidence/source.zip HEAD
+      - name: Test evidence (not a deployment)
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: review-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ci-evidence/
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: error
