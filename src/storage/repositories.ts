@@ -78,7 +78,7 @@ export async function restoreCopy(backup: Backup, asset: PdfAsset, suffix = ' (W
   return project;
 }
 export async function deleteProject(id: string, expectedUpdatedAt: number): Promise<void> {
-  await db.transaction('rw', db.documents, db.pdfAssets, db.notes, db.sessions, db.settings, db.recoveries, async () => {
+  await db.transaction('rw', [db.documents, db.pdfAssets, db.notes, db.sessions, db.settings, db.recoveries], async () => {
     const document = await db.documents.get(id);
     if (!document) return;
     if (document.updatedAt !== expectedUpdatedAt) throw new Error('Das Projekt wurde inzwischen verändert. Bibliothek neu öffnen und den aktuellen Stand prüfen.');
