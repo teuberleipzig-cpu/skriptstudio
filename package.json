@@ -1,0 +1,41 @@
+{
+  "name": "skriptstudio",
+  "version": "0.1.0-review",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
+  "scripts": {
+    "dev": "node scripts/prepare-assets.mjs && vite",
+    "lint": "node scripts/lint.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node scripts/test-core.mjs && vitest run",
+    "test:core": "node scripts/test-core.mjs",
+    "test:e2e": "node scripts/generate-test-fixtures.mjs && playwright test",
+    "build": "npm run typecheck && node scripts/prepare-assets.mjs && vite build && node scripts/build-pwa.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "fixtures": "node scripts/generate-test-fixtures.mjs",
+    "lock:bootstrap": "npm install --package-lock-only --ignore-scripts"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
+    "dexie": "4.4.6",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.4.299",
+    "pdfmake": "0.3.11",
+    "quill": "2.0.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "25.1.0",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "fake-indexeddb": "6.2.5",
+    "typescript": "5.8.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
+  }
+}

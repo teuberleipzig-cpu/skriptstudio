@@ -1,0 +1,59 @@
+# Temporary bootstrap: creates only a Git blob, never a commit/ref/merge/deployment.
+name: Resolve lock (bootstrap only)
+on:
+  push:
+    branches: ['feat/initial-app']
+    paths: ['package.json', '.github/workflows/resolve-lock.yml']
+permissions:
+  contents: read
+jobs:
+  resolve:
+    if: github.repository == 'teuberleipzig-cpu/skriptstudio' && github.ref == 'refs/heads/feat/initial-app'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Resolve actual locked dependencies without lifecycle scripts
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Verify clean installation and dependency versions
+        run: |
+          npm ci --ignore-scripts
+          npm ls --depth=0
+          node --version
+          npm --version
+      - name: Dependency security report (review required)
+        run: |
+          npm audit --json > /tmp/skriptstudio-audit.json || true
+          cat /tmp/skriptstudio-audit.json
+      - name: Save exact lock as unreferenced Git blob for connector review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const content = readFileSync('package-lock.json');
+          const lock = JSON.parse(content.toString('utf8'));
+          if (lock.lockfileVersion !== 3 || lock.name !== 'skriptstudio') throw new Error('Unexpected lockfile');
+          for (const [path, pkg] of Object.entries(lock.packages)) {
+            if (!path) continue;
+            if (!pkg.resolved?.startsWith('https://registry.npmjs.org/') || !pkg.integrity) throw new Error(`Unverified package origin/integrity: ${path}`);
+          }
+          const response = await fetch('https://api.github.com/repos/teuberleipzig-cpu/skriptstudio/git/blobs', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+            body: JSON.stringify({ content: content.toString('base64'), encoding: 'base64' })
+          });
+          if (!response.ok) throw new Error(`Git blob request: ${response.status} ${await response.text()}`);
+          const result = await response.json();
+          console.log(JSON.stringify({ marker: 'SKRIPTSTUDIO_LOCK', sourceCommit: process.env.GITHUB_SHA, blob: result.sha, sha256: createHash('sha256').update(content).digest('hex'), bytes: content.length, packages: Object.keys(lock.packages).length, root: lock.packages[''] }, null, 2));
+          console.log('No branch modified, no commit created, no deployment. Review and attach this exact blob through the connector.');
+          NODE
