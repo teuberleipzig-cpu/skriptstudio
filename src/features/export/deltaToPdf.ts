@@ -28,6 +28,13 @@ export function deltaLines(input: NoteDelta): Line[] {
   }
   return lines;
 }
+/** Bottom spacing separates nodes, but must not create a trailing content-free page. */
+function removeTerminalSpacing(node: PdfNode): void {
+  if (node.margin) node.margin[3] = 0;
+  const children = node.stack ?? node.ol ?? node.ul;
+  const last = children?.[children.length - 1];
+  if (last) removeTerminalSpacing(last);
+}
 export function deltaToPdf(delta: NoteDelta): PdfNode[] {
   const content: PdfNode[] = [];
   type Level = { depth: number; kind: 'ordered' | 'bullet'; node: PdfNode; items: PdfNode[]; last: PdfNode };
@@ -53,5 +60,7 @@ export function deltaToPdf(delta: NoteDelta): PdfNode[] {
     const item: PdfNode = { stack: [paragraph] };
     level.items.push(item); level.last = item;
   }
+  const last = content[content.length - 1];
+  if (last) removeTerminalSpacing(last);
   return content.length ? content : [{ text: ' ' }];
 }

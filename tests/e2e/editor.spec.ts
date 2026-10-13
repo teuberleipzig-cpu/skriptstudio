@@ -9,10 +9,11 @@ test('Toolbar-Auswahl, kombinierte Formate, Farben und getrennte Undo-Historie',
     await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true');
   }
   await page.getByLabel('Schriftfarbe', { exact: true }).fill('#123456');
-  await page.getByLabel('Text-Hintergrundfarbe').fill('#fff1a8');
+  // Choose a new value: filling the already displayed default does not emit a change.
+  await page.getByLabel('Text-Hintergrundfarbe').fill('#ffee88');
   await page.getByRole('button', { name: 'Blocksatz', exact: true }).click();
   const backup = parseBackupJson((await downloadBackup(page)).toString('utf8'));
-  expect(backup.notes[0]?.delta.ops.some(op => op.attributes?.bold && op.attributes.italic && op.attributes.underline && op.attributes.strike && op.attributes.color === '#123456' && op.attributes.background === '#fff1a8')).toBe(true);
+  expect(backup.notes[0]?.delta.ops.some(op => op.attributes?.bold && op.attributes.italic && op.attributes.underline && op.attributes.strike && op.attributes.color === '#123456' && op.attributes.background === '#ffee88')).toBe(true);
   expect(backup.notes[0]?.delta.ops.some(op => op.attributes?.align === 'justify')).toBe(true);
   await page.getByRole('button', { name: 'PDF exportieren', exact: true }).click();
   const pending = page.waitForEvent('download'); await page.getByRole('button', { name: 'PDF erstellen' }).click();
@@ -23,4 +24,5 @@ test('Toolbar-Auswahl, kombinierte Formate, Farben und getrennte Undo-Historie',
   await page.getByRole('button', { name: 'Rückgängig', exact: true }).click();
   await expect(page.locator('.ql-editor')).not.toContainText('Nur Seite zwei');
   await goPage(page, 1); await expect(page.locator('.ql-editor')).toContainText('FORMATE');
-});
+}
+);
