@@ -10,6 +10,8 @@ export async function buildPwa(dist='dist',base=basePath()) {
   const files=(await walk(root)).filter(p=>!['sw.js','precache-manifest.json'].includes(relative(root,p)));
   const digest=createHash('sha256');const resources=[];
   for(const file of files) { const path=relative(root,file).replaceAll('\\','/'); const bytes=await readFile(file); digest.update(path).update(bytes);resources.push(base+path); }
+  // Include the worker algorithm version, not only resource bytes, in cache identity.
+  digest.update('static-cache-v2-vary-safe');
   const version=digest.digest('hex').slice(0,20);
   const prefix='skriptstudio-shell-'+createHash('sha256').update(base).digest('hex').slice(0,10)+'-';
   const cacheName=prefix+version;
@@ -29,7 +31,7 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
 self.addEventListener('message',event=>{
   if(event.data!=='SKRIPTSTUDIO_CHECK') return;
   event.waitUntil((async()=>{
-    try { const cache=await caches.open(CACHE);const complete=(await Promise.all(RESOURCES.map(url=>cache.match(url)))).every(Boolean);event.ports[0]?.postMessage(complete?'SKRIPTSTUDIO_READY':'SKRIPTSTUDIO_INCOMPLETE'); }
+    try { const cache=await caches.open(CACHE);const complete=(await Promise.all(RESOURCES.map(url=>cache.match(url,{ignoreVary:true})))).every(Boolean);event.ports[0]?.postMessage(complete?'SKRIPTSTUDIO_READY':'SKRIPTSTUDIO_INCOMPLETE'); }
     catch { event.ports[0]?.postMessage('SKRIPTSTUDIO_INCOMPLETE'); }
   })());
 });
@@ -37,11 +39,13 @@ self.addEventListener('fetch',event=>{
   const request=event.request,url=new URL(request.url);
   if(request.method!=='GET'||url.origin!==self.location.origin||!url.pathname.startsWith(BASE)) return;
   if(request.mode==='navigate'&&(url.pathname===BASE||url.pathname===BASE+'index.html')) {
-    event.respondWith((async()=>{ const cache=await caches.open(CACHE);return await cache.match(BASE+'index.html') || fetch(request); })());return;
+    event.respondWith((async()=>{ const cache=await caches.open(CACHE);return await cache.match(BASE+'index.html',{ignoreVary:true}) || fetch(request); })());return;
   }
   if(!allowed.has(request.url)) return;
-  // Runtime requests do not add files to the app cache, especially no documents or notes.
-  event.respondWith((async()=>{ const cache=await caches.open(CACHE);return await cache.match(request) || fetch(request); })());
+  // Only content-versioned, same-origin static resources are eligible. Vite's Vary:
+  // Origin must not cause a cache miss between precache and crossorigin module fetches.
+  // No runtime/user resources, query variants or other app caches are matched.
+  event.respondWith((async()=>{ const cache=await caches.open(CACHE);return await cache.match(request,{ignoreVary:true}) || fetch(request); })());
 });
 `;
   await writeFile(join(root,'sw.js'),code);

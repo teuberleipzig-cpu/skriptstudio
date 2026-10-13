@@ -16,15 +16,20 @@ test('Gleiches PDF unter anderem Namen erkennt den Stand; gleichnamige andere By
   await openPdf(page); await write(page, 'Mein erster Stand'); await saved(page);
   const original = await import('node:fs/promises').then(fs => fs.readFile(fixture()));
   await page.getByLabel('PDF-Datei', { exact: true }).setInputFiles({ name: 'Anders.pdf', mimeType: 'application/pdf', buffer: original });
+  // Existing text alone is no completion signal: it is already present during import.
+  await expect(page.getByRole('button', { name: '＋ PDF öffnen', exact: true })).toBeEnabled();
   await expect(page.locator('.ql-editor')).toContainText('Mein erster Stand');
   const different = await import('node:fs/promises').then(fs => fs.readFile(fixture('different.pdf')));
   await page.getByLabel('PDF-Datei', { exact: true }).setInputFiles({ name: 'mixed.pdf', mimeType: 'application/pdf', buffer: different });
+  await expect(page.getByRole('button', { name: '＋ PDF öffnen', exact: true })).toBeEnabled();
+  await expect(page.locator('.textLayer')).toContainText('Different ORIGINAL 1');
   await expect(page.locator('.ql-editor')).not.toContainText('Mein erster Stand');
 });
 test('Abgelehnte PDF-Dateien lassen das geöffnete Projekt unangetastet', async ({ page }) => {
   await openPdf(page); await write(page, 'Nicht verlieren'); await saved(page);
   for (const bad of ['empty.pdf', 'corrupt.pdf', 'not-pdf.pdf']) {
     await page.getByLabel('PDF-Datei', { exact: true }).setInputFiles(fixture(bad));
+    await expect(page.getByRole('button', { name: '＋ PDF öffnen', exact: true })).toBeEnabled();
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(page.locator('.ql-editor')).toContainText('Nicht verlieren');
   }
