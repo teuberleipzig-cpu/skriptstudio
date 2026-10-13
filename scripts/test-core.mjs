@@ -1,0 +1,11 @@
+import { mkdirSync, writeFileSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { compile } from './tooling.mjs';
+compile('tsconfig.core.json');
+mkdirSync('.core-build', { recursive: true });
+writeFileSync('.core-build/package.json', '{"type":"commonjs"}\n');
+const files = readdirSync('tests/core').filter(file => file.endsWith('.test.cjs')).map(file => 'tests/core/' + file);
+if (!files.length) throw new Error('Keine Kerntests gefunden.');
+const run = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit' });
+if (run.error) throw run.error;
+process.exitCode = run.status ?? 1;

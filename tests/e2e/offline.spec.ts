@@ -1,0 +1,26 @@
+import { test, expect } from '@playwright/test';
+import { openPdf, write, saved, bytes, downloadBackup } from './helpers';
+test('Unterpfad, keine Fremdübertragung und erster PDF-Export nach Offline-Neustart', async ({ context, page }) => {
+  const remote: string[] = [], errors: string[] = [], missing: string[] = [];
+  context.on('request', request => { if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== 'http://127.0.0.1:4173') remote.push(request.url()); });
+  context.on('response', response => { if (response.status() >= 400) missing.push(response.url()); });
+  page.on('pageerror', error => errors.push(error.message));
+  await openPdf(page); await write(page, 'Geheimer synthetischer Offline-Test'); await saved(page);
+  const backup = await downloadBackup(page);
+  await expect(page.locator('.app-footer')).toContainText('Offline bereit');
+  await page.evaluate(async () => { await (await caches.open('another-app-must-survive')).put('/unrelated-proof', new Response('keep')); });
+  await page.close(); await context.setOffline(true);
+  const offline = await context.newPage(); await offline.goto('');
+  await expect(offline.locator('.ql-editor')).toContainText('Geheimer synthetischer Offline-Test');
+  await write(offline, 'Offline weitergeschrieben'); await saved(offline);
+  await offline.getByRole('button', { name: 'PDF exportieren', exact: true }).click();
+  const pending = offline.waitForEvent('download'); await offline.getByRole('button', { name: 'PDF erstellen' }).click();
+  expect((await bytes(await pending)).subarray(0, 5).toString()).toBe('%PDF-');
+  await offline.getByRole('button', { name: 'Dialog schließen' }).click();
+  await offline.getByRole('button', { name: 'Backup', exact: true }).click();
+  await offline.getByLabel('Backup-Datei', { exact: true }).setInputFiles({ name: 'offline.json', mimeType: 'application/json', buffer: backup });
+  await offline.getByRole('button', { name: 'Als neue Projektkopie importieren' }).click();
+  await expect(offline.locator('.ql-editor')).toContainText('Geheimer synthetischer Offline-Test');
+  expect(await offline.evaluate(() => caches.has('another-app-must-survive'))).toBe(true);
+  expect(remote).toEqual([]); expect(missing).toEqual([]); expect(errors).toEqual([]);
+});

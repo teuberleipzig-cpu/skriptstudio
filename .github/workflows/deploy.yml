@@ -1,0 +1,52 @@
+name: Pages (explicit approval only)
+on:
+  workflow_dispatch:
+    inputs:
+      approve_first_or_next_publish:
+        description: 'Ich gebe die Veröffentlichung dieses main-Stands ausdrücklich frei.'
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  verified-build:
+    if: github.ref == 'refs/heads/main' && inputs.approve_first_or_next_publish == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run test:e2e -- --project=chromium
+      - uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: dist
+  publish:
+    needs: verified-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6.0.0
+      - name: Publish verified artifact
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1
