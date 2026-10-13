@@ -1,43 +1,63 @@
 # Testbericht – SkriptStudio
 
-Datum: 13.10.2026. Entwicklung auf `feat/initial-app`, Draft-PR #1. Kein Merge oder Deployment. Dieser Zwischenbericht nennt beobachtete Ergebnisse und wird nach dem Korrekturlauf aktualisiert.
+Stand: 13.10.2026. Repository `teuberleipzig-cpu/skriptstudio`, Feature-Branch `feat/initial-app`, Draft-PR #1. Die vorhandene vollständige CI ist grün. Das ist ein nachgewiesen funktionsfähiger Review-Stand, nicht die Behauptung, sämtliche weitergehenden Abnahmeanforderungen des Masterprompts seien bereits getestet.
 
-## Nachweise bis zum letzten ausgewerteten Lauf
+## Verifizierter Code und Lauf
 
-Paketauflösung: Run **38401700980**, Quellcommit **87a186981f1d176835be870bff8366677640ebda**, Node 24.21.0, npm 11.19.0, Ubuntu 24.04.5. Echte Installation und Lockfile-Auflösung erfolgreich; Lock unverändert eingecheckt. Weitere Paketversionen und Quill-Auditbewertung: DEPENDENCIES.md.
+Geprüfter Feature-Commit: **c7c20a0d5e865766714bf8c9f8b5967055857daf**.
 
-Erster vollständiger CI-Lauf **38404645537** am Quellcommit **4b8a2f5de91a62a35ba904b49d87464861607591**: npm ci und Lint erfolgreich, Typecheck meldete zwei Quill-AttributeMap-Typfehler und einen Dexie-Transaktions-Overload. Diese drei Fehler wurden in **5a00a254738e10d899a9f6ba90da0845ca8838ab** korrigiert, ohne Prüfregeln abzuschalten.
+Erfolgreicher CI-Lauf: **38409793382**, Job **115338782108**. Quell- und Testartefakte **11821170472** wurden heruntergeladen und unabhängig ausgewertet. Der Test-Checkout ist GitHubs synthetischer PR-Testmerge **38c74ab6ac9bd31464cb395e9d774f98c1ca9ac1**; dies ist kein Merge nach main. Der vorliegende Bericht wird nach dem bereits geprüften Code geschrieben und erfindet keinen eigenen zukünftigen Commit-SHA.
 
-CI-Lauf **38404983789** an **5a00a254738e10d899a9f6ba90da0845ca8838ab**, synthetischer PR-Testmerge **d08f95f7b7136c8f635aa080e5727e3762d7c975**: sauberes npm ci, Lint, vollständiger strikter Typecheck, Kern-/Datenbanktests, Produktionsbuild und Chromium-Installation erfolgreich. Ein synthetischer Testmerge unter refs/pull ist keine Übernahme nach main.
+Laufzeit: Ubuntu 24.04.5, Node **24.21.0**, npm **11.19.0**, TypeScript **5.8.3**, Chromium **151.0.7897.14**, Playwright **1.64.0**. Weitere exakte Paketversionen und das echte Lockfile sind in DEPENDENCIES.md dokumentiert.
 
-Der heruntergeladene Playwright-HTML-Bericht aus Artefakt **11818897470** enthält **15 Chromium-Tests: 10 bestanden, 5 fehlgeschlagen, 0 flaky, 0 übersprungen**. Die Testartefakte wurden direkt ausgewertet; eine zunächst irreführende aggregierte Logdarstellung wurde nicht als finale Ergebniszählung übernommen.
+| Prüfung | Beobachtetes Ergebnis |
+|---|---|
+| `npm ci` mit echtem eingechecktem Lockfile | Bestanden |
+| `npm run lint` | Bestanden |
+| `npm run typecheck` – gesamtes Strict-TypeScript-Projekt | Bestanden |
+| Node-Kerntests: Delta, Backup, SaveQueue, Exportmodell, PWA-Generator | **72/72 bestanden** |
+| Vitest: echte Dexie-Funktionen mit fake-indexeddb und installierte Exportfonts | **11/11 bestanden** |
+| `npm run build` | Bestanden; statischer Produktionsbuild inklusive Offline-Ressourcen |
+| Chromium gegen `/skriptstudio/` | **16/16 bestanden**, keine Wiederholungs-Erfolge, keine übersprungenen Fälle |
 
-Bestanden in diesem Lauf: Drei-Seiten-Bindung mit Reload, abgewiesene PDFs ohne Datenverlust, Zwei-Tab-Schreibsperre und Übernahme, vier Ansichtsbreiten, 300-Seiten-/bildlastiger Import, Vollbackup in frischem Browserkontext sowie Erzeugung eines langen Exports. Die damalige Langexportprüfung belegte nur die Seitenanzahl, noch nicht den Endmarker.
+Der tatsächliche Playwright-HTML-Bericht bestätigt `total=16`, `expected=16`, `unexpected=0`, `flaky=0`, `skipped=0`. Insgesamt 99 bestandene automatisierte Testfälle unterschiedlicher Ebenen; nicht 99 vollständige unabhängige Produktabnahmen.
 
-Fehlerursachen aus Screenshots/Traces:
+## Was die Browserprüfungen belegen
 
-1. Zwei Exporttests wurden durch die korrekte Glyphenprüfung abgebrochen: „→“ fehlte im vorher verwendeten Roboto-Schriftpaket. Keine stille Zeichenauslassung.
-2. Offline-Neustart lud die HTML-Shell, aber JS/CSS verfehlten den Cache durch `Vary: Origin` zwischen Installations- und Modulrequests. Offline war damit noch nicht bestanden.
-3. Zwei Importtests prüften bereits vorhandenen Text beziehungsweise einen ohnehin deaktivierten Button statt den Abschluss des vorherigen Imports. Sie konnten dadurch einen weiteren Import während des laufenden Vorgangs anstoßen; die App wies diesen ab.
+PDF-Import und sichtbare erste Seite; schnelle Notizwechsel auf drei Seiten; Reload nach bestätigtem Save; Navigation und Grenzen. Identische PDF-Bytes unter anderem Namen öffnen denselben Stand; unterschiedliche Bytes mit gleichem Namen bleiben getrennt. Abgelehnte Dateien verändern die bisherigen Notizen nicht.
 
-## Korrekturen in diesem nachfolgenden Quellstand
+Ein zweiter Tab ist schreibgeschützt; nach Schließen des ersten Tabs lässt sich die Bearbeitung übernehmen. Ansichten mit 1440, 1024, 768 und 390 Pixeln Breite werden geprüft. Desktop- und Smartphone-Screenshots wurden zusätzlich visuell betrachtet. Ein 300-Seiten-Dokument und ein bildlastiges 32-Seiten-Dokument werden geöffnet und zu ihren letzten Seiten navigiert.
 
-Export verwendet die vier Liberation-Sans-Schnitte aus der bereits fest gepinnten PDF.js-Abhängigkeit, lädt sie ausschließlich aus lokalen vorbereiteten Ressourcen und prüft weiterhin sämtliche Glyphen. Vier neue Tests prüfen Umlaute/Statistikzeichen einschließlich Pfeil gegen die echten installierten Fonts. Es wurden keine privaten Systemschriften hinzugefügt.
+Vollbackup direkt nach Eingabe wird in einem frischen Browserkontext wiederhergestellt, einschließlich Lesezeichen und Statistikzeichen. Ein reines Notizen-Backup verlangt das identische Original; falsche Bytes werden abgewiesen. Ein ungültiger Folgeimport entfernt die zuvor gültige Importvorschau, statt deren Zustand versehentlich weiterzuverwenden.
 
-Der Service Worker gleicht `Vary` nur für exakt inventarisierte statische Same-Origin-Ressourcen ab; nicht für Nutzerdaten, externe Ressourcen oder beliebige Queryvarianten. Die Cacheidentität enthält zusätzlich die geänderte Workerlogik. Die strenge Dateiliste und fremde App-Caches bleiben erhalten.
+Die Toolbar-Prüfung kombiniert Fett, Kursiv, Unterstreichen, Durchstreichen, Schriftfarbe, Markerfarbe und Blocksatz und kontrolliert den tatsächlich exportierten Delta-Zustand. Undo auf einer zweiten Seite verändert die erste Seite nicht.
 
-Importtests warten nun auf tatsächliche Parser-/Hash-Ergebnisse beziehungsweise den aktivierten Öffnen-Button. Neue Browserprüfung für kombinierte Toolbar-Formate, Schrift-/Markerfarbe, Blocksatz und getrennte Undo-Historie. Langexport wird erneut in PDF.js geöffnet und auf Anfang, Ende sowie nachfolgende Originalseite geprüft. Synthetische Ergebnis-PDFs werden für unabhängige Sichtprüfung als CI-Artefakte erhalten.
+Der Offline-Test bereitet Ressourcen online vor, schließt den Tab, sperrt das Netzwerk und öffnet die App in einem neuen Tab. Lesen, Weiterbearbeiten, Speichern, erster PDF-Export in dieser Sitzung und Backup-Import bestehen. Fremde App-Caches bleiben erhalten. In diesem Netzwerktest wurden keine fremden HTTP(S)-Ziele oder fehlgeschlagenen Ressourcenrequests festgestellt.
 
-**Die Ergebnisse dieses Korrekturlaufs sind zum Schreiben dieses Zwischenberichts noch nicht beobachtet.**
+## Unabhängige Prüfung der tatsächlichen Export-PDFs
 
-## Testdaten und Grenzen
+Die exportierten PDFs wurden zusätzlich außerhalb der Anwendung mit PyMuPDF gelesen. Repräsentative Notizseiten, die kombinierte Formatseite und die letzte lange Notizseite wurden gerendert und visuell betrachtet.
 
-Nur programmgenerierte synthetische PDFs, keine echten Vorlesungsinhalte oder privaten Notizen. Gemischtes 3-Seiten-PDF mit Hoch-/Querformat, CropBox und 90°-Rotation. 300-Seiten-Datei: 124.125 Bytes. Bildlastig: 32 Seiten, 25.185.255 Bytes (rund 24,0 MiB). Das sind getestete Fälle, keine Zusage für das Eingangslimit 150 MiB/5.000 Seiten.
+- Leer-Auslassung an: **5 Seiten** in der Reihenfolge Original 1, Notiz 1, Original 2, Notiz 2, Original 3. Leer-Auslassung aus: **6 Seiten**, zusätzlich eine leere Notizseite nach Original 3.
+- Originalformate bleiben gemischt; die dritte Originalseite behält 90°-Rotation und CropBox. Neue Notizseiten sind A4-Hochformat.
+- Der Notiztext enthält auswählbar/extrahierbar **äöüß, α, β, μ, σ, Δ, ≤, ≥, ±, ² und →**.
+- Die Formatseite enthält LiberationSans-BoldItalic in der gewählten Schriftfarbe **#123456**; gelber Hintergrund sowie gleichzeitiges Unter- und Durchstreichen sind im gerenderten PDF sichtbar.
+- Der Langexport hat **25 Gesamtseiten**, davon **22 Notizseiten** zu Originalseite 1. Nach Entfernung der wiederkehrenden Kopf-/Fußzeilen und Normalisierung von Leerraum entspricht der gesamte extrahierte Notiztext exakt dem erwarteten Inhalt: Startmarker, 1.800 Wiederholungen des synthetischen Beispielsatzes, Endmarker. Der Endmarker steht auf der letzten Notizseite; danach folgen Original 2 und Original 3. Keine zusätzliche absatzabstandsbedingte Leerseite.
 
-Die lokale Chat-Laufzeit konnte weiterhin keine Pakete über die Registry installieren; maßgeblicher Build-/Browsertestweg ist GitHub Actions. 70 historische lokale Kerntests allein gelten nicht als App-Abnahme.
+## Gefundene und behobene Fehler
 
-Noch separat nachzuweisen: vollständige visuelle PDF-Abnahme nach Fontwechsel, alle Heading-/Listen-/Einrückungsfälle, exakter Sieben-Seiten-Referenzfall, echter Browser-Quota-/Recovery-Fehlerpfad mit verzögerten Transaktionen, persistentes Browserprofil über einen Prozessneustart, Updatewechsel mit mehreren Tabs, IME/Screenreader und native Windows-/macOS-Prüfung. Firefox und WebKit sind konfiguriert, aber bisher nicht ausgeführt. Quill-Low-Auditwarnung bleibt dokumentiert.
+Der erste vollständige Typecheck fand zwei Quill-Delta-Typschnittstellenfehler und einen Dexie-Transaktions-Overload; sie wurden behoben, ohne Prüfeinstellungen abzuschalten. Die erste Browserprüfung fand eine fehlende Pfeil-Glyphe im ursprünglichen Roboto-Exportfont und einen Offline-Cache-Miss durch `Vary: Origin`. Der Export verwendet jetzt vier geprüfte Liberation-Sans-Schnitte aus der vorhandenen PDF.js-Abhängigkeit. Cache-Abgleich ignoriert Vary ausschließlich für exakt inventarisierte eigene statische Ressourcen.
 
-## Veröffentlichung
+Zwei Importtests warteten zunächst auf schon vorher vorhandene Zustände statt auf den Abschluss der laufenden Prüfung; sie warten jetzt auf echte Parser-/Hash-Ergebnisse. Ein Farbtest schrieb zunächst denselben bereits angezeigten Standardwert und löste damit kein Change-Ereignis aus; er testet nun eine tatsächliche Farbänderung. Der letzte Absatzabstand langer Exporte erzeugte eine zusätzliche inhaltsleere Seite; terminale Abstände werden gezielt entfernt, tatsächlich eingegebene leere Absätze bleiben erhalten.
 
-main bleibt bei **be38f8456fe033aff8cc661d6446c18178fba9ed**. Der separate Pages-Workflow ist technisch vorbereitet und verlangt main plus ausdrückliche manuelle Bestätigung. Er wurde nicht ausgeführt; keine Live-App-URL bestätigt.
+## Testdaten, Sicherheit und verbleibende Abnahme
+
+Ausschließlich synthetische Testdaten. 300 Seiten: **124.125 Bytes**. Bildlastige 32 Seiten: **25.185.255 Bytes**, etwa 24,0 MiB. Diese Fälle sind keine Leistungszusage für die technischen Eingangslimits 150 MiB oder 5.000 Seiten.
+
+Das Audit meldet weiterhin eine bekannte **Low-Warnung bei Quill 2.0.3** für einen HTML-Exportpfad, den diese Anwendung nicht anbietet. Keine pauschale Sicherheitsgarantie; Details in DEPENDENCIES.md. Die lokale Chat-Laufzeit kann weiterhin nicht regulär über npm installieren; der nachgewiesene vollständige Installations-/Build-/Browserweg ist GitHub Actions.
+
+Noch nicht vollständig nachgewiesen: echte Browser-Quota-/Recovery-Simulation mit absichtlich verzögerten Transaktionen; persistentes Profil über einen vollständigen Browserprozess-Neustart; sämtliche Überschriften-, Listen-, Einrückungs- und Clipboard-Sicherheitsfälle; der gesonderte exakte Sieben-Seiten-Referenzfall; realer App-Versionswechsel mit mehreren Tabs; IME, Screenreader und native Windows-/macOS-Prüfung. Firefox und WebKit sind konfiguriert, aber noch nicht ausgeführt. Isolierte Queue-/Datenbanktests sind kein Ersatz für diese zusätzlichen Browserfälle.
+
+## Freigabe und Veröffentlichung
+
+Kein Merge, kein Auto-Merge, kein erster Live-Deploy. Main bleibt bei **be38f8456fe033aff8cc661d6446c18178fba9ed**. Der Pages-Workflow ist vorbereitet und verlangt main plus ausdrückliche manuelle Bestätigung; er wurde nicht ausgeführt. Eine Live-App-URL ist nicht bestätigt. Die Repository-Schreibfreigabe ist erledigt; für weitere Code-/Testarbeit ist aktuell keine zusätzliche Nutzerberechtigung erforderlich.
